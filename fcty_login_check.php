@@ -1,35 +1,42 @@
 <?php
 session_start();
 include('connection.php');
-if(isset($_POST['submit']))
-{
-    if($_SERVER["REQUEST_METHOD"] == "POST") {
-        // username and password sent from form 
-        
-        $email = $_POST['email'];
-        $mypassword =sha1($_POST['password']);
-        $sql = "SELECT * FROM fcty_register WHERE fcty_email = '$email' and fcty_password = '$mypassword'";
-        //echo $sql;
-        $result = mysqli_query($conn,$sql) or die ("no database");
-        //echo "$result";
-        $row = mysqli_fetch_array($result,MYSQLI_BOTH);
-        //echo $row['name'];
-        $active = $row['active'];
-        //echo $active;
-        $count = mysqli_num_rows($result);
-        
-        // If result matched $email and $mypassword, table row must be 1 row
-        if($count == 1) {
-            $_SESSION['email']=$email;
-            echo "<script>window.open('Success!')</script>";
-           header("location: fcty_home.php");
-        }else {
-           $error = "Your Login Name or Password is invalid";
-           ?>
-           <script> alert("Your Login Email or Password is invalid"); window.history.back();</script>
-           <?php
-           //header("location: 404.php");
-        }
-     }
+
+if (isset($_POST['submit']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if ($email === '' || $password === '') {
+        ?>
+        <script>alert("Your Login Email or Password is empty"); window.history.back();</script>
+        <?php
+        exit;
+    }
+
+    $hashedPassword = sha1($password);
+    $stmt = mysqli_prepare($conn, 'SELECT 1 FROM fcty_register WHERE fcty_email = ? AND fcty_password = ? LIMIT 1');
+
+    if ($stmt === false) {
+        ?>
+        <script>alert("Login is temporarily unavailable. Please try again."); window.history.back();</script>
+        <?php
+        exit;
+    }
+
+    mysqli_stmt_bind_param($stmt, 'ss', $email, $hashedPassword);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_store_result($stmt);
+
+    if (mysqli_stmt_num_rows($stmt) === 1) {
+        $_SESSION['email'] = $email;
+        mysqli_stmt_close($stmt);
+        header('Location: fcty_home.php');
+        exit;
+    }
+
+    mysqli_stmt_close($stmt);
+    ?>
+    <script>alert("Your Login Email or Password is invalid"); window.history.back();</script>
+    <?php
 }
 ?>
